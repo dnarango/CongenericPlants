@@ -1,0 +1,124 @@
+---
+title: "Promethea Moth Performance Code"
+output: html_notebook
+---
+
+```{r libraries}
+library(ape)
+require(stringr)
+library(rvest)
+library(multcomp)
+library(cowplot)
+library(emmeans)
+library(lmerTest)
+library(readxl)
+library(viridis)
+
+## for survival
+library(survival)
+library(ggpubr)
+library(survminer) ## this is for function 'ggsurvplot'
+library(cowplot) ## this is for graph formatting
+
+```
+
+```{r data}
+#location<-"add file location here"
+location<-"C:/Users/DesireeNarango/Documents/manuscripts/promethea/Data/"
+
+#survival<-read.csv(paste0(location,"promethea_survival.csv"))%>%
+#  dplyr::select(-X)
+survival_long<-read.csv(paste0(location,"survival_format_long.csv"))
+growth_rate<-read.csv(paste0(location,"growth_rate.csv"))
+weight<-read.csv(paste0(location,"weight.csv"))
+tree_traits <- read.csv(paste0(location,"tree_traits.csv"))
+
+```
+1) Survival Analysis
+```{r}
+#survival model
+survival_model<-coxph(Surv(total_days_alive, fate)~tree_type,data=survival_long)
+summary(survival_model)
+anova(survival_model)
+
+summary(glht(survival_model, mcp(tree_type="Tukey")))
+
+##Survival Graph
+fit1<- survfit(Surv(total_days_alive, fate)~tree_type, data=survival_long)
+summary(fit1)
+
+ggsurvplot(fit1, conf.int = TRUE,
+           ggtheme = theme_cowplot(), legend = "bottom", 
+           legend.title = "Host Plant",
+           legend.labs = c("Black Cherry","Local Cherry",
+                           "NonLocal Cherry","Nonnative Cherry","Non-host"),
+           #palette = c("#edf8fb","#b2e2e2","#66c2a4","#238b45"), 
+           palette=viridis(5),
+           pval = FALSE)+
+  labs(y="Survival Probability")
+```
+2) Growth Rate
+```{r}
+growth_model<-lmerTest::lmer(min_age~treatment + (1|Female), data=growth_rate)
+summary(growth_model)
+anova(growth_model)
+
+summary(glht(growth_model, mcp(treatment="Tukey")))
+
+## graph results
+ggplot(data=growth_rate)+
+  geom_boxplot(aes(x=Instar,y=min_age, fill=tree_type,color=tree_type), 
+               size=1, alpha=0.5, width=0.75)+
+  labs(y="Age of molt (in days)", x="Instar", fill="Tree Type",color="Tree Type")+
+  theme_cowplot(14)+
+  scale_fill_manual(values=viridis(5)[1:5])+
+  scale_color_manual(values=viridis(5)[1:5])+
+  geom_vline(xintercept=1.5, linetype="dashed", size=1)+
+  geom_vline(xintercept=2.5, linetype="dashed", size=1)+
+  geom_vline(xintercept=3.5, linetype="dashed", size=1)+
+  ## Instar 2
+  annotate(geom="text",x=0.7,y=24,label="a")+ # Black Cherry
+  annotate(geom="text",x=0.85,y=24,label="ab")+ # Local
+  annotate(geom="text",x=1,y=24,label="b")+ # nonlocal
+  annotate(geom="text",x=1.15,y=24,label="b")+ # nonnative
+  annotate(geom="text",x=1.3,y=24,label="ab")+ # nonhost
+  #Instar 3
+  annotate(geom="text",x=1.7,y=30,label="a")+ # Black Cherry
+  annotate(geom="text",x=1.9,y=30,label="ab")+ # Local
+  annotate(geom="text",x=2.1,y=30,label="ab")+ # nonlocal
+  annotate(geom="text",x=2.3,y=30,label="b")+ # nonnative
+  #Instar 4
+  annotate(geom="text",x=2.7,y=40,label="a")+ # Black Cherry
+  annotate(geom="text",x=2.9,y=40,label="b")+ # Local
+  annotate(geom="text",x=3.1,y=40,label="ab")+ # nonlocal
+  annotate(geom="text",x=3.3,y=40,label="b")+ # nonnative
+  #Instar 5
+  annotate(geom="text",x=3.7,y=54,label="a")+ # Black Cherry
+  annotate(geom="text",x=3.9,y=54,label="b")+ # Local
+  annotate(geom="text",x=4.1,y=54,label="b")+ # nonlocal
+  annotate(geom="text",x=4.3,y=54,label="b") # nonnative
+```
+3) Larval Biomass
+```{r}
+##model
+biomass_model<-lmerTest::lmer(weight_g_numeric~age+tree_type+(1|female),data=weight)
+summary(biomass_model)
+anova(biomass_model)
+
+summary(glht(biomass_model, mcp(tree_type="Tukey")))
+
+##graph
+ggplot(data=weight)+
+  geom_jitter(aes(x=tree_type,y=weight_g_numeric, color=tree_type), size=4,alpha=0.5)+
+  geom_boxplot(aes(x=tree_type,y=weight_g_numeric, color=tree_type,fill=tree_type),size=1.5,alpha=0.25)+
+  theme_cowplot(16)+
+  scale_fill_manual(values=viridis(5)[1:4])+
+  scale_color_manual(values=viridis(5)[1:4])+
+  labs(y="Biomass of larvae\nat 5th instar (g)",x="")+
+  theme(legend.position = "none")+
+  annotate(geom="text",x=1,y=4.25,label="A", size=6)+
+  annotate(geom="text",x=2,y=4.25,label="A", size=6)+
+  annotate(geom="text",x=3,y=4.25,label="AB", size=6)+
+  annotate(geom="text",x=4,y=4.25,label="B", size=6)
+
+```
